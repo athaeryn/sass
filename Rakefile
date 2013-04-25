@@ -25,10 +25,11 @@ end
 # before we load the gemspec.
 desc "Build all the packages."
 task :package => [:revision_file, :date_file, :submodules, :permissions] do
+  require 'rubygems/package'
   version = get_version
   File.open(scope('VERSION'), 'w') {|f| f.puts(version)}
   load scope('sass.gemspec')
-  Gem::Builder.new(SASS_GEMSPEC).build
+  Gem::Package.build(SASS_GEMSPEC)
   sh %{git checkout VERSION}
 
   pkg = "#{SASS_GEMSPEC.name}-#{SASS_GEMSPEC.version}"
@@ -78,7 +79,7 @@ end
 desc "Install Sass as a gem. Use SUDO=1 to install with sudo."
 task :install => [:package] do
   gem  = RUBY_PLATFORM =~ /java/  ? 'jgem' : 'gem' 
-  sh %{#{'sudo ' if ENV["SUDO"]}#{gem} install --no-ri pkg/sass-#{get_version}}
+  sh %{#{'sudo ' if ENV["SUDO"]}#{gem} install --no-ri pkg/sass-#{get_version}.gem}
 end
 
 desc "Release a new Sass package to Rubyforge."
@@ -149,16 +150,16 @@ end
 # this includes the proper prerelease version.
 def get_version
   written_version = File.read(scope('VERSION').strip)
-  return written_version unless File.exist?(scope('.git'))
+  return written_version.strip unless File.exist?(scope('.git'))
 
   # Get the current master branch version
   version = written_version.split('.')
   version.map! {|n| n =~ /^[0-9]+$/ ? n.to_i : n}
-  return written_version unless version.size == 5 && version[3] == "alpha" # prerelease
+  return written_version.strip unless version.size == 5 && version[3] == "alpha" # prerelease
 
-  return written_version if (commit_count = `git log --pretty=oneline HEAD ^stable | wc -l`).empty?
+  return written_version.strip if (commit_count = `git log --pretty=oneline HEAD ^stable | wc -l`).empty?
   version[4] = commit_count.strip
-  version.join('.')
+  version.join('.').strip
 end
 
 task :watch_for_update do
